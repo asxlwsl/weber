@@ -44,6 +44,8 @@ type HttpServer struct {
 	// routers map[string]HandleFunc
 
 	routers *router.Router
+
+	*RouterGroup
 }
 
 // 默认的关闭方案
@@ -93,10 +95,23 @@ func WithHttpServerStop(fn func() error) HttpOption {
 
 // 构造方法
 func NewHttpServer(options ...HttpOption) *HttpServer {
-	hServer := &HttpServer{
+
+	rootGroup := &RouterGroup{}
+
+	var server Server = &HttpServer{
 		// routers: map[string]HandleFunc{},
 		routers: router.NewRouter(),
+
+		RouterGroup: rootGroup,
 	}
+	rootGroup.engine = &server
+	hServer, ok := server.(*HttpServer)
+
+	if !ok {
+		log.Panicln("生成Server失败")
+		return nil
+	}
+
 	for _, option := range options {
 		option(hServer)
 	}
@@ -136,6 +151,7 @@ func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request
 		wcontext.HandleNotFound(ctx)
 	}
 
+	//处理完毕，写入数据
 	ctx.Complete()
 }
 

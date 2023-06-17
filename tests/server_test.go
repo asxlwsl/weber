@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 	"weber/server"
+	"weber/wcontext"
 )
 
 func TestHttpServer(t *testing.T) {
@@ -24,4 +25,21 @@ func TestHttpServer(t *testing.T) {
 		fmt.Println("关闭失败")
 	}
 	fmt.Println("关闭成功")
+}
+func TestRouterGroup(t *testing.T) {
+	h := server.NewHttpServer(server.WithHttpServerStop(nil))
+	v1 := h.Group("v1")
+
+	handler := func(ctx *wcontext.Context) {
+		fmt.Println("123")
+	}
+
+	v1.GET("/user", handler)
+	v1.POST("/login", handler)
+
+	v2 := v1.Group("v2")
+
+	v2.GET("/to", handler)
+
+	// v2.Run(":8080")
 }
