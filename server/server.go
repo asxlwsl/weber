@@ -9,10 +9,13 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"weber/router"
+	"weber/wcontext"
 )
 
 // 视图函数signature
-type HandleFunc func(w http.ResponseWriter, r *http.Request)
+// type HandleFunc func(w http.ResponseWriter, r *http.Request)
 
 type Server interface {
 
@@ -27,7 +30,7 @@ type Server interface {
 	Stop() error
 
 	//核心
-	addRouter(method string, pattern string, handlwFunc HandleFunc)
+	addRouter(method string, pattern string, handlwFunc wcontext.HandleFunc)
 }
 
 type HttpOption func(h *HttpServer)
@@ -38,7 +41,9 @@ type HttpServer struct {
 	//一个函数类型的属性，用于优雅关闭服务
 	stop func() error
 
-	routers map[string]HandleFunc
+	// routers map[string]HandleFunc
+
+	routers *router.Router
 }
 
 // 默认的关闭方案
@@ -56,7 +61,7 @@ func defaultHttpStop(h *HttpServer) func() error {
 		fmt.Println("== shutdown ==")
 
 		//超时5秒钟的上下文
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 
 		defer cancel()
 
@@ -89,7 +94,8 @@ func WithHttpServerStop(fn func() error) HttpOption {
 // 构造方法
 func NewHttpServer(options ...HttpOption) *HttpServer {
 	hServer := &HttpServer{
-		routers: map[string]HandleFunc{},
+		// routers: map[string]HandleFunc{},
+		routers: router.NewRouter(),
 	}
 	for _, option := range options {
 		option(hServer)
@@ -99,14 +105,38 @@ func NewHttpServer(options ...HttpOption) *HttpServer {
 
 // 接收客户端请求，转发请求到框架，由框架进行处理
 func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+
+	/*
+		//1.路由匹配
+		inKey := fmt.Sprintf("%s-%s", request.Method, request.URL)
+		if handleFunc := h.routers[inKey]; handleFunc != nil {
+
+			//2.构造当前请求的上下文
+			c := wcontext.NewContext(writer, request)
+			log.Printf("request %s - %s", c.Method, c.Pattern)
+
+			//3.转发请求
+			handleFunc(c)
+
+		} else {
+			writer.WriteHeader(http.StatusNotFound)
+			writer.Write([]byte("404 not found!"))
+		}
+	*/
+	//生成上下文
+	ctx := wcontext.NewContext(writer, request)
+
 	//路由匹配
-	inKey := fmt.Sprintf("%s-%s", request.Method, request.URL)
-	if handleFunc := h.routers[inKey]; handleFunc != nil {
-		handleFunc(writer, request)
-	} else {
-		writer.WriteHeader(http.StatusNotFound)
-		writer.Write([]byte("404 not found!"))
+	handler := h.routers.GetRouter(ctx)
+
+	//调用对应路由处理
+	if handler != nil {
+		handler(ctx)
+	} else if !ctx.Done {
+		wcontext.HandleNotFound(ctx)
 	}
+
+	ctx.Complete()
 }
 
 func (h *HttpServer) Start(addr string) error {
@@ -131,12 +161,16 @@ func (h *HttpServer) Stop() error {
 // 注册的路由如何存储
 //
 //	方案一：map[method-pattern]HandleFunc
-func (h *HttpServer) addRouter(method string, pattern string, hangleFunc HandleFunc) {
-	key := fmt.Sprintf("%s-%s", method, pattern)
+func (h *HttpServer) addRouter(method string, pattern string, hangleFunc wcontext.HandleFunc) {
+	/*
+		key := fmt.Sprintf("%s-%s", method, pattern)
 
-	log.Printf("add router %s - %s\n", method, pattern)
+		log.Printf("add router %s - %s\n", method, pattern)
 
-	h.routers[key] = hangleFunc
+		h.routers[key] = hangleFunc
+	*/
+
+	h.routers.AddRouter(method, pattern, hangleFunc)
 }
 
 /*

@@ -1,8 +1,13 @@
 package server
 
-import "net/http"
+import (
+	"net/http"
+	"weber/wcontext"
+)
 
 //路由注册的扩展，提供给用户
+
+type HandleFunc = wcontext.HandleFunc
 
 func (h *HttpServer) GET(pattern string, handleFunc HandleFunc) {
 	h.addRouter(http.MethodGet, pattern, handleFunc)
