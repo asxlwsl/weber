@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -31,6 +32,8 @@ type Server interface {
 
 	//核心
 	addRouter(method string, pattern string, handlwFunc wcontext.HandleFunc)
+
+	addGroup(group *RouterGroup)
 }
 
 type HttpOption func(h *HttpServer)
@@ -46,6 +49,8 @@ type HttpServer struct {
 	routers *router.Router
 
 	*RouterGroup
+
+	groups []*RouterGroup
 }
 
 // 默认的关闭方案
@@ -118,6 +123,24 @@ func NewHttpServer(options ...HttpOption) *HttpServer {
 	return hServer
 }
 
+// 匹配中间件(对应当前URL)
+// 中间件在各个路由组上
+// 需要在HttpServer上维护整个项目有的路由组
+func (h *HttpServer) filterMiddlewares(pattern string) []MiddlewareHandleFunc {
+
+	middlewares := make([]MiddlewareHandleFunc, 0)
+	for _, group := range h.groups {
+		if strings.HasPrefix(pattern, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
+	return middlewares
+}
+
+func (h *HttpServer) addGroup(group *RouterGroup) {
+	h.groups = append(h.groups, group)
+}
+
 // 接收客户端请求，转发请求到框架，由框架进行处理
 func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
@@ -138,18 +161,51 @@ func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request
 			writer.Write([]byte("404 not found!"))
 		}
 	*/
-	//生成上下文
+	// 生成上下文
 	ctx := wcontext.NewContext(writer, request)
 
-	//路由匹配
-	handler := h.routers.GetRouter(ctx)
+	// 获取中间价
+	middlewares := h.filterMiddlewares(ctx.Pattern)
 
-	//调用对应路由处理
-	if handler != nil {
-		handler(ctx)
-	} else if !ctx.Done {
-		wcontext.HandleNotFound(ctx)
+	// 无论有没有中间件，都将视图函数构建成中间件
+	// 将形式统一，以中间件的形式执行
+	// 当前请求没有中间件
+	if len(middlewares) == 0 {
+		middlewares = make([]MiddlewareHandleFunc, 0)
 	}
+
+	// 路由匹配
+	handler := h.routers.GetRouter(ctx)
+	if handler == nil {
+		handler = wcontext.HandleNotFound
+	}
+
+	// 将匹配到的视图函数添加到mids
+	handleFunc := handler
+
+	// 构造责任链(从内向外)
+	/*
+		- M1
+			-M2
+				-View
+			-M2
+		- M1
+	*/
+
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		handleFunc = middlewares[i](handleFunc)
+	}
+
+	handleFunc(ctx)
+
+	/*
+		// 调用对应路由处理
+		if handler != nil {
+			handler(ctx)
+		} else if !ctx.Done {
+			wcontext.HandleNotFound(ctx)
+		}
+	*/
 
 	//处理完毕，写入数据
 	ctx.Complete()

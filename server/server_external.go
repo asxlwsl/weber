@@ -70,6 +70,9 @@ type RouterGroup struct {
 
 	// 服务实例
 	engine *Server
+
+	// 当前路由组的中间件
+	middlewares []MiddlewareHandleFunc
 }
 
 func (r *RouterGroup) Group(prefix string) *RouterGroup {
@@ -84,8 +87,19 @@ func (r *RouterGroup) Group(prefix string) *RouterGroup {
 	*/
 	prefix = fmt.Sprintf("/%s", strings.Trim(prefix, "/"))
 
-	return &RouterGroup{prefix: fmt.Sprintf("%s%s", r.prefix, prefix), parent: r, engine: r.engine}
+	group := &RouterGroup{prefix: fmt.Sprintf("%s%s", r.prefix, prefix), parent: r, engine: r.engine}
+
+	// 将路由组交给engine维护，用于后续路由组中间价的查找
+	(*r.engine).addGroup(group)
+
+	return group
 }
 func (r *RouterGroup) Run(addr string) {
 	(*(r.engine)).Start(addr)
+}
+
+// 注册中间件
+// 将中间件维护在当前路由组
+func (r *RouterGroup) Use(middlewares ...MiddlewareHandleFunc) {
+	r.middlewares = append(r.middlewares, middlewares...)
 }

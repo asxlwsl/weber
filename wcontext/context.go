@@ -73,6 +73,11 @@ type Context struct {
 	// 3.响应体
 	data []byte
 
+	handlers []HandleFunc
+
+	//当前handler索引
+	index int
+
 	//是否继续处理，设为true后不再处理
 	Done bool
 }
@@ -200,11 +205,25 @@ func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 		method:   r.Method,
 		Pattern:  r.URL.Path,
 		header:   make(map[string]string),
+		handlers: []HandleFunc{},
+		index: -1,
 		Done:     false,
 	}
 	parseQueryParams(ctx)
 	return ctx
 }
+
+// 执行所有视图函数
+func (c *Context)Next(){
+	c.index++
+	size := len(c.handlers)
+	for ;c.index<size;c.index++{
+		c.handlers[c.index](c)
+	}
+}
+
+
+
 func parseQueryParams(ctx *Context) {
 	querys := ctx.request.URL.RawQuery
 	params := map[string]string{}

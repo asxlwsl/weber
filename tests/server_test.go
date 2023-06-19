@@ -31,15 +31,20 @@ func TestRouterGroup(t *testing.T) {
 	v1 := h.Group("v1")
 
 	handler := func(ctx *wcontext.Context) {
-		fmt.Println("123")
+		ctx.HTML("<h1 style='color:red'>请求成功</h1>")
 	}
+
+	v1.Use(server.RequestFilter())
+	v1.Use(server.Logger())
 
 	v1.GET("/user", handler)
 	v1.POST("/login", handler)
 
-	v2 := v1.Group("v2")
+	v1.Run(":8080")
+	t.Fail()
+	// v2 := v1.Group("v2")
 
-	v2.GET("/to", handler)
+	// v2.GET("/to", handler)
 
 	// v2.Run(":8080")
 }
