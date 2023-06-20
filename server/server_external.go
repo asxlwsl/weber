@@ -4,16 +4,19 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"weber/middleware"
 	"weber/wcontext"
 )
+
+type MiddlewareHandleFunc = middleware.MiddlewareHandleFunc
 
 //路由注册的扩展，提供给用户
 
 type WRoute interface {
-	GET(pattern string, handler HandleFunc)
-	POST(pattern string, handler HandleFunc)
-	PUT(pattern string, handler HandleFunc)
-	DELETE(pattern string, handler HandleFunc)
+	GET(pattern string, handler HandleFunc, handleChains ...MiddlewareHandleFunc)
+	POST(pattern string, handler HandleFunc, handleChains ...MiddlewareHandleFunc)
+	PUT(pattern string, handler HandleFunc, handleChains ...MiddlewareHandleFunc)
+	DELETE(pattern string, handler HandleFunc, handleChains ...MiddlewareHandleFunc)
 }
 
 type HandleFunc = wcontext.HandleFunc
@@ -35,28 +38,25 @@ type HandleFunc = wcontext.HandleFunc
 //	}
 
 // 统一注册
-func (r *RouterGroup) addRouter(method string, pattern string, handler HandleFunc) {
+func (r *RouterGroup) addRouter(method string, pattern string, handler HandleFunc, handleChains ...MiddlewareHandleFunc) {
 	pattern = fmt.Sprintf("%s%s", r.prefix, pattern)
-
-	fmt.Println("ADD ROUTER:", pattern)
-
-	(*r.engine).addRouter(method, pattern, handler)
+	(*r.engine).addRouter(method, pattern, handler, handleChains...)
 }
 
-func (r *RouterGroup) GET(pattern string, handleFunc HandleFunc) {
-	r.addRouter(http.MethodGet, pattern, handleFunc)
+func (r *RouterGroup) GET(pattern string, handleFunc HandleFunc, handleChains ...MiddlewareHandleFunc) {
+	r.addRouter(http.MethodGet, pattern, handleFunc, handleChains...)
 }
 
-func (r *RouterGroup) POST(pattern string, handleFunc HandleFunc) {
-	r.addRouter(http.MethodPost, pattern, handleFunc)
+func (r *RouterGroup) POST(pattern string, handleFunc HandleFunc, handleChains ...MiddlewareHandleFunc) {
+	r.addRouter(http.MethodPost, pattern, handleFunc, handleChains...)
 }
 
-func (r *RouterGroup) DELETE(pattern string, handleFunc HandleFunc) {
-	r.addRouter(http.MethodDelete, pattern, handleFunc)
+func (r *RouterGroup) DELETE(pattern string, handleFunc HandleFunc, handleChains ...MiddlewareHandleFunc) {
+	r.addRouter(http.MethodDelete, pattern, handleFunc, handleChains...)
 }
 
-func (r *RouterGroup) PUT(pattern string, handleFunc HandleFunc) {
-	r.addRouter(http.MethodPut, pattern, handleFunc)
+func (r *RouterGroup) PUT(pattern string, handleFunc HandleFunc, handleChains ...MiddlewareHandleFunc) {
+	r.addRouter(http.MethodPut, pattern, handleFunc, handleChains...)
 }
 
 // 路由组功能

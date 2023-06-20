@@ -3,13 +3,15 @@ package router
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"strings"
-
+	"weber/middleware"
 	"weber/wcontext"
 
 	"golang.org/x/exp/maps"
 )
+
+type HandleChain = middleware.HandleChain
+type MiddlewareHandleFunc = middleware.MiddlewareHandleFunc
 
 const (
 	ROOT_PATH = "/"
@@ -44,8 +46,9 @@ func handleIndexFunc(ctx *wcontext.Context) {
 }
 
 type Router struct {
-	roots    map[string]*node
-	handlers map[string]wcontext.HandleFunc
+	roots        map[string]*node
+	handlers     map[string]wcontext.HandleFunc
+	handleChains map[string]HandleChain
 }
 
 // 参数类型的泛型限定 string,map,slice
@@ -55,8 +58,9 @@ type ParamType interface {
 
 func NewRouter() *Router {
 	r := &Router{
-		roots:    make(map[string]*node),
-		handlers: make(map[string]wcontext.HandleFunc),
+		roots:        make(map[string]*node),
+		handlers:     make(map[string]wcontext.HandleFunc),
+		handleChains: make(map[string]middleware.HandleChain),
 	}
 
 	r.roots[ROOT_PATH] = &node{}
@@ -73,7 +77,7 @@ func parsePattern(pattern string) []string {
 }
 
 // 将URL的字符串进行切割，分块保存到前缀树上
-func (r *Router) AddRouter(method string, pattern string, handler wcontext.HandleFunc) {
+func (r *Router) AddRouter(method string, pattern string, handler wcontext.HandleFunc, handleChain ...MiddlewareHandleFunc) {
 
 	// _, ok := r.roots[method]
 
@@ -95,8 +99,9 @@ func (r *Router) AddRouter(method string, pattern string, handler wcontext.Handl
 	key := fmt.Sprintf("%s-%s", method, pattern)
 	r.handlers[key] = handler
 
-}
+	r.handleChains[key] = handleChain
 
+}
 func (r *Router) GetRouter(ctx *wcontext.Context) wcontext.HandleFunc {
 
 	n, params := r.getRouter(ctx.GetMethod(), ctx.Pattern)
@@ -111,12 +116,14 @@ func (r *Router) GetRouter(ctx *wcontext.Context) wcontext.HandleFunc {
 	key := fmt.Sprintf("%s-%s", ctx.GetMethod(), n.pattern)
 
 	if fn, ok := r.handlers[key]; ok {
+
+		handleChain, _ := r.handleChains[key]
+
+		for i := len(handleChain) - 1; i >= 0; i-- {
+			fn = handleChain[i](fn)
+		}
 		return fn
 	}
-
-	//matched but no handler
-	wcontext.HandleErrorReturn(ctx, http.StatusForbidden, "403 Forbidden!")
-	ctx.Done = true
 
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"weber/middleware"
 	"weber/server"
 	"weber/wcontext"
 )
@@ -34,10 +35,10 @@ func TestRouterGroup(t *testing.T) {
 		ctx.HTML("<h1 style='color:red'>请求成功</h1>")
 	}
 
-	v1.Use(server.RequestFilter())
-	v1.Use(server.Logger())
+	v1.Use(middleware.RequestFilter())
+	// v1.Use(middleware.Logger())
 
-	v1.GET("/user", handler)
+	v1.GET("/user", handler, middleware.Logger())
 	v1.POST("/login", handler)
 
 	v1.Run(":8080")

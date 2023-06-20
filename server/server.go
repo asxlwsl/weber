@@ -31,7 +31,7 @@ type Server interface {
 	Stop() error
 
 	//核心
-	addRouter(method string, pattern string, handlwFunc wcontext.HandleFunc)
+	addRouter(method string, pattern string, handlwFunc wcontext.HandleFunc, handleChains ...MiddlewareHandleFunc)
 
 	addGroup(group *RouterGroup)
 }
@@ -233,7 +233,7 @@ func (h *HttpServer) Stop() error {
 // 注册的路由如何存储
 //
 //	方案一：map[method-pattern]HandleFunc
-func (h *HttpServer) addRouter(method string, pattern string, hangleFunc wcontext.HandleFunc) {
+func (h *HttpServer) addRouter(method string, pattern string, hangleFunc wcontext.HandleFunc, handleChain ...MiddlewareHandleFunc) {
 	/*
 		key := fmt.Sprintf("%s-%s", method, pattern)
 
@@ -242,7 +242,7 @@ func (h *HttpServer) addRouter(method string, pattern string, hangleFunc wcontex
 		h.routers[key] = hangleFunc
 	*/
 
-	h.routers.AddRouter(method, pattern, hangleFunc)
+	h.routers.AddRouter(method, pattern, hangleFunc, handleChain...)
 }
 
 /*
