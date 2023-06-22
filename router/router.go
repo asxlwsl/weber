@@ -110,7 +110,7 @@ func (r *Router) GetRouter(ctx *wcontext.Context) wcontext.HandleFunc {
 
 	// no matched
 	if n == nil {
-		return nil
+		return wcontext.HandleNotFound()
 	}
 
 	key := fmt.Sprintf("%s-%s", ctx.GetMethod(), n.pattern)
@@ -125,15 +125,13 @@ func (r *Router) GetRouter(ctx *wcontext.Context) wcontext.HandleFunc {
 		return fn
 	}
 
-	return nil
+	return wcontext.HandleMethodNotAllowed()
 }
 
 // 获取pattern和query参数
 func (r *Router) getRouter(method string, pattern string) (*node, map[string]string) {
 
 	parts := parsePattern(pattern)
-
-	log.Println("pattern: ", pattern, " parts: ", parts)
 
 	// root, ok := r.roots[method]
 

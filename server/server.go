@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"weber/middleware"
 	"weber/router"
 	"weber/wcontext"
 )
@@ -164,21 +165,32 @@ func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request
 	// 生成上下文
 	ctx := wcontext.NewContext(writer, request)
 
-	// 获取中间价
-	middlewares := h.filterMiddlewares(ctx.Pattern)
+	// 获取全局中间件
+	middlewares := []MiddlewareHandleFunc{middleware.Flush(), middleware.Recovery()}
 
-	// 无论有没有中间件，都将视图函数构建成中间件
-	// 将形式统一，以中间件的形式执行
-	// 当前请求没有中间件
-	if len(middlewares) == 0 {
-		middlewares = make([]MiddlewareHandleFunc, 0)
+	// 获取路由中间价
+	rmids := h.filterMiddlewares(ctx.Pattern)
+
+	if len(rmids) != 0 {
+		middlewares = append(middlewares, rmids...)
 	}
+	/*
+		// 无论有没有中间件，都将视图函数构建成中间件
+		// 将形式统一，以中间件的形式执行
+		// 当前请求没有中间件
+		if len(middlewares) == 0 {
+			middlewares = make([]MiddlewareHandleFunc, 0)
+		}
+	*/
 
 	// 路由匹配
 	handler := h.routers.GetRouter(ctx)
+
+	/* 内部处理完成，必定存在handler，包括出错的handler
 	if handler == nil {
 		handler = wcontext.HandleNotFound
 	}
+	*/
 
 	// 将匹配到的视图函数添加到mids
 	handleFunc := handler
@@ -208,7 +220,7 @@ func (h *HttpServer) ServeHTTP(writer http.ResponseWriter, request *http.Request
 	*/
 
 	//处理完毕，写入数据
-	ctx.Complete()
+	// ctx.Complete()
 }
 
 func (h *HttpServer) Start(addr string) error {

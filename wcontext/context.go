@@ -15,15 +15,6 @@ type HandleFunc func(ctx *Context)
 // 提供一个新类型，方便操作
 type H map[string]any
 
-func HandleErrorReturn(ctx *Context, errCode int, errMsg string) {
-	ctx.SetStatusCode(errCode)
-	ctx.SetResponseBody([]byte(errMsg))
-}
-
-func HandleNotFound(ctx *Context) {
-	HandleErrorReturn(ctx, http.StatusNotFound, "404 NOT FOUND!")
-}
-
 const (
 	CONTENT_TYPE = "Content-Type"
 	DEFAULT_CODE = 200
@@ -80,6 +71,8 @@ type Context struct {
 
 	//是否继续处理，设为true后不再处理
 	Done bool
+
+	Error error
 }
 
 // 获取params参数
@@ -196,8 +189,12 @@ func (c *Context) Complete() {
 
 	//写入响应数据
 	c.response.Write(c.data)
+	c.Done = true
 }
-
+func (c *Context) Fail(statusCode int, msg string) {
+	c.SetStatusCode(statusCode)
+	c.SetResponseBody([]byte("<h1>" + msg + "</h1>"))
+}
 func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 	ctx := &Context{
 		response: w,
@@ -206,7 +203,7 @@ func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 		Pattern:  r.URL.Path,
 		header:   make(map[string]string),
 		handlers: []HandleFunc{},
-		index: -1,
+		index:    -1,
 		Done:     false,
 	}
 	parseQueryParams(ctx)
@@ -214,15 +211,13 @@ func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 }
 
 // 执行所有视图函数
-func (c *Context)Next(){
+func (c *Context) Next() {
 	c.index++
 	size := len(c.handlers)
-	for ;c.index<size;c.index++{
+	for ; c.index < size; c.index++ {
 		c.handlers[c.index](c)
 	}
 }
-
-
 
 func parseQueryParams(ctx *Context) {
 	querys := ctx.request.URL.RawQuery

@@ -33,6 +33,7 @@ func TestRouterGroup(t *testing.T) {
 
 	handler := func(ctx *wcontext.Context) {
 		ctx.HTML("<h1 style='color:red'>请求成功</h1>")
+		panic("Hello Painc")
 	}
 
 	v1.Use(middleware.RequestFilter())
